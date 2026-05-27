@@ -206,7 +206,15 @@ func (s *Subscriber) processMessage(
 		"message_uuid": msg.UUID,
 	})
 
-	output <- msg
+	select {
+	case output <- msg:
+	case <-s.closing:
+		logger.Debug("Closing, message discarded before send", logFields)
+		return false
+	case <-ctx.Done():
+		logger.Debug("Closing, ctx cancelled before send", logFields)
+		return false
+	}
 
 	select {
 	case <-msg.Acked():
